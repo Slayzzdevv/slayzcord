@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SlayzCord</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="loginScreen" class="screen active">
+        <div class="login-box">
+            <div class="logo">
+                <h1>SlayzCord</h1>
+            </div>
+            
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="login">Connexion</button>
+                <button class="tab-btn" data-tab="register">Inscription</button>
+            </div>
+
+            <div id="loginForm" class="form-container active">
+                <form id="loginFormElement">
+                    <div class="form-group">
+                        <label for="loginUsername">Nom d'utilisateur</label>
+                        <input type="text" id="loginUsername" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="loginPassword">Mot de passe</label>
+                        <input type="password" id="loginPassword" required>
+                    </div>
+                    <button type="submit" class="btn-primary">Se connecter</button>
+                    <div id="loginError" class="error-message"></div>
+                </form>
+            </div>
+
+            <div id="registerForm" class="form-container">
+                <form id="registerFormElement">
+                    <div class="form-group">
+                        <label for="registerUsername">Nom d'utilisateur</label>
+                        <input type="text" id="registerUsername" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="registerPassword">Mot de passe</label>
+                        <input type="password" id="registerPassword" required>
+                    </div>
+                    <button type="submit" class="btn-primary">S'inscrire</button>
+                    <div id="registerError" class="error-message"></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="appScreen" class="screen">
+        <div class="app-container">
+            <div class="servers-sidebar">
+                <div class="server-icon home-server" id="homeServer" title="Accueil">
+                    <span>SC</span>
+                </div>
+                <div class="servers-list" id="serversList"></div>
+                <button class="add-server-btn" id="addServerBtn" title="Créer un serveur">+</button>
+                <button class="add-server-btn join-server-btn" id="joinServerBtn" title="Rejoindre un serveur">🔗</button>
+            </div>
+
+            <div class="channels-sidebar">
+                <div class="server-header">
+                    <h2 id="serverName">SlayzCord</h2>
+                </div>
+                <div class="channels-list" id="channelsList"></div>
+                
+                <div id="voiceControls" class="voice-controls" style="display: none;">
+                    <div class="voice-info">
+                        <div class="voice-icon">🔊</div>
+                        <div class="voice-details">
+                            <div class="voice-status" id="voiceStatus">Voix connectée</div>
+                            <div class="voice-channel-name" id="voiceChannelName"></div>
+                        </div>
+                    </div>
+                    <div class="voice-buttons">
+                        <button class="voice-btn mute-btn" id="muteBtn" title="Muet">
+                            <span id="muteIcon">🎤</span>
+                        </button>
+                        <button class="voice-btn disconnect-btn" id="disconnectBtn" title="Déconnecter">
+                            <span>📞</span>
+                        </button>
+                        <button class="voice-btn screen-btn" id="screenShareBtn" title="Partager l'écran">
+                            <span>🖥️</span>
+                        </button>
+                        <button class="voice-btn settings-btn" id="voiceSettingsBtn" title="Paramètres">
+                            <span>⚙️</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="user-info">
+                    <div class="user-avatar">
+                        <span id="userAvatarText"></span>
+                    </div>
+                    <div class="user-details">
+                        <span id="userUsername"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="main-content">
+                <div class="messages-header">
+                    <h3 id="channelName">Sélectionnez un canal</h3>
+                </div>
+                <div class="messages-container" id="messagesContainer">
+                    <div class="welcome-message">
+                        <h2>Bienvenue sur SlayzCord</h2>
+                        <p>Sélectionnez un canal pour commencer à discuter</p>
+                    </div>
+                </div>
+                <div id="screenShareContainer" style="display: none;">
+                    <video id="screenShareVideo" autoplay playsinline></video>
+                </div>
+                <div class="message-input-container" id="messageInputContainer" style="display: none;">
+                    <form id="messageForm">
+                        <input type="text" id="messageInput" placeholder="Tapez un message..." autocomplete="off">
+                        <button type="submit">Envoyer</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="members-sidebar">
+                <div class="members-header">
+                    <h3>Membres</h3>
+                </div>
+                <div class="members-list" id="membersList"></div>
+            </div>
+        </div>
+
+        <div class="modal" id="createServerModal" style="display: none;">
+            <div class="modal-content">
+                <span class="close-modal" id="closeServerModal">&times;</span>
+                <h2>Créer un serveur</h2>
+                <form id="createServerForm">
+                    <div class="form-group">
+                        <label for="serverNameInput">Nom du serveur</label>
+                        <input type="text" id="serverNameInput" required>
+                    </div>
+                    <button type="submit" class="btn-primary">Créer</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="modal" id="createChannelModal" style="display: none;">
+            <div class="modal-content">
+                <span class="close-modal" id="closeChannelModal">&times;</span>
+                <h2>Créer un canal</h2>
+                <form id="createChannelForm">
+                    <div class="form-group">
+                        <label for="channelNameInput">Nom du canal</label>
+                        <input type="text" id="channelNameInput" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="channelTypeInput">Type</label>
+                        <select id="channelTypeInput">
+                            <option value="text">Textuel</option>
+                            <option value="voice">Vocal</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn-primary">Créer</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="modal" id="joinServerModal" style="display: none;">
+            <div class="modal-content">
+                <span class="close-modal" id="closeJoinModal">&times;</span>
+                <h2>Rejoindre un serveur</h2>
+                <form id="joinServerForm">
+                    <div class="form-group">
+                        <label for="serverIdInput">ID du serveur</label>
+                        <input type="text" id="serverIdInput" required placeholder="Entrez l'ID du serveur">
+                    </div>
+                    <button type="submit" class="btn-primary">Rejoindre</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
