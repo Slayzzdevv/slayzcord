@@ -143,14 +143,42 @@ function removeRemoteVideo(socketId) {
     }
 }
 
+function getCookie(name) {
+    const nameEQ = name + "=";
+    const ca = document.cookie.split(';');
+    for(let i = 0; i < ca.length; i++) {
+        let c = ca[i];
+        while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+        if (c.indexOf(nameEQ) === 0) return decodeURIComponent(c.substring(nameEQ.length, c.length));
+    }
+    return null;
+}
+
+function setCookie(name, value, days) {
+    const expires = new Date();
+    expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
+    document.cookie = `${name}=${encodeURIComponent(value)};expires=${expires.toUTCString()};path=/;SameSite=Lax`;
+}
+
+function deleteCookie(name) {
+    document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;`;
+}
+
 function checkAuth() {
-    const token = localStorage.getItem('token');
-    const userData = localStorage.getItem('user');
+    const token = getCookie('slayzcord_token') || localStorage.getItem('token');
+    const userData = getCookie('slayzcord_user') || localStorage.getItem('user');
 
     if (token && userData) {
-        currentUser = JSON.parse(userData);
-        showApp();
-        loadServers();
+        try {
+            currentUser = typeof userData === 'string' ? JSON.parse(userData) : userData;
+            localStorage.setItem('token', token);
+            localStorage.setItem('user', typeof userData === 'string' ? userData : JSON.stringify(userData));
+            showApp();
+            loadServers();
+        } catch (error) {
+            console.error('Erreur parsing user data:', error);
+            showLogin();
+        }
     } else {
         showLogin();
     }
@@ -159,6 +187,10 @@ function checkAuth() {
 function showLogin() {
     document.getElementById('loginScreen').classList.add('active');
     document.getElementById('appScreen').classList.remove('active');
+    deleteCookie('slayzcord_token');
+    deleteCookie('slayzcord_user');
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
 }
 
 function showApp() {
@@ -166,6 +198,8 @@ function showApp() {
     document.getElementById('appScreen').classList.add('active');
     updateUserInfo();
     setupAppListeners();
+    loadFriends();
+    setupFriendsListeners();
 }
 
 function updateUserInfo() {
@@ -221,8 +255,19 @@ function setupAuthListeners() {
             const data = await response.json();
 
             if (response.ok) {
+                const rememberMe = document.getElementById('rememberMe')?.checked || false;
+                
                 localStorage.setItem('token', data.token);
                 localStorage.setItem('user', JSON.stringify(data.user));
+                
+                if (rememberMe) {
+                    setCookie('slayzcord_token', data.token, 30);
+                    setCookie('slayzcord_user', JSON.stringify(data.user), 30);
+                } else {
+                    setCookie('slayzcord_token', data.token, 1);
+                    setCookie('slayzcord_user', JSON.stringify(data.user), 1);
+                }
+                
                 currentUser = data.user;
                 showApp();
                 loadServers();
@@ -259,8 +304,19 @@ function setupAuthListeners() {
             const data = await response.json();
 
             if (response.ok) {
+                const rememberMe = document.getElementById('rememberMeRegister')?.checked || false;
+                
                 localStorage.setItem('token', data.token);
                 localStorage.setItem('user', JSON.stringify(data.user));
+                
+                if (rememberMe) {
+                    setCookie('slayzcord_token', data.token, 30);
+                    setCookie('slayzcord_user', JSON.stringify(data.user), 30);
+                } else {
+                    setCookie('slayzcord_token', data.token, 1);
+                    setCookie('slayzcord_user', JSON.stringify(data.user), 1);
+                }
+                
                 currentUser = data.user;
                 showApp();
                 loadServers();
@@ -283,11 +339,14 @@ function setupAppListeners() {
         document.getElementById('serverName').textContent = 'SlayzCord';
         document.getElementById('channelsList').innerHTML = '';
         document.getElementById('membersList').innerHTML = '';
-        document.getElementById('messagesContainer').innerHTML = '<div class="welcome-message"><h2>Bienvenue sur SlayzCord</h2><p>Sélectionnez un serveur pour commencer</p></div>';
+        document.getElementById('friendsSection').style.display = 'flex';
+        document.getElementById('inviteServerBtn').style.display = 'none';
+        document.getElementById('messagesContainer').innerHTML = '<div class="welcome-message"><h2>Bienvenue sur SlayzCord</h2><p>Sélectionnez un serveur ou un ami pour commencer</p></div>';
         document.getElementById('messageInputContainer').style.display = 'none';
         document.getElementById('voiceControls').style.display = 'none';
         document.getElementById('screenShareContainer').style.display = 'none';
-        document.getElementById('channelName').textContent = 'Sélectionnez un canal';
+        document.getElementById('channelName').textContent = 'SlayzCord';
+        loadFriends();
     });
 
     document.getElementById('addServerBtn').addEventListener('click', () => {
@@ -386,11 +445,12 @@ function setupAppListeners() {
 
     document.getElementById('joinServerForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const serverId = document.getElementById('serverIdInput').value.trim();
+        const inviteLink = document.getElementById('serverIdInput').value.trim();
+        const inviteCode = inviteLink.split('/').pop();
 
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch(`${API_URL}/api/servers/${serverId}/join`, {
+            const response = await fetch(`${API_URL}/api/invite/${inviteCode}/accept`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -482,6 +542,8 @@ async function selectServer(server) {
     document.querySelector(`[data-server-id="${server.id}"]`)?.classList.add('active');
 
     document.getElementById('serverName').textContent = server.name;
+    document.getElementById('friendsSection').style.display = 'none';
+    document.getElementById('inviteServerBtn').style.display = 'block';
     await loadChannels();
     await loadMembers();
     
@@ -595,7 +657,10 @@ async function joinVoiceChannel(channel) {
     document.getElementById('messageInputContainer').style.display = 'none';
     document.getElementById('voiceControls').style.display = 'block';
     document.getElementById('voiceChannelName').textContent = channel.name;
-    document.getElementById('screenShareContainer').style.display = 'block';
+    
+    const screenShareContainer = document.getElementById('screenShareContainer');
+    screenShareContainer.style.display = 'block';
+    screenShareContainer.innerHTML = '<video id="screenShareVideo" autoplay playsinline></video>';
 
     try {
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
@@ -609,9 +674,14 @@ async function joinVoiceChannel(channel) {
         }
 
         peerConnections.forEach((pc, socketId) => {
-            localStream.getTracks().forEach(track => {
-                pc.addTrack(track, localStream);
-            });
+            if (localStream) {
+                localStream.getTracks().forEach(track => {
+                    const sender = pc.getSenders().find(s => s.track && s.track.kind === track.kind);
+                    if (!sender) {
+                        pc.addTrack(track, localStream);
+                    }
+                });
+            }
         });
     } catch (error) {
         console.error('Erreur accès microphone:', error);
@@ -703,19 +773,20 @@ function leaveVoice() {
     });
     peerConnections.clear();
 
-    if (socket && currentChannel) {
+    if (socket && currentChannel && isInVoice) {
         socket.emit('leaveVoice');
     }
 
     isInVoice = false;
     isMuted = false;
     document.getElementById('voiceControls').style.display = 'none';
-    document.getElementById('screenShareContainer').style.display = 'none';
+    const screenShareContainer = document.getElementById('screenShareContainer');
+    if (screenShareContainer) {
+        screenShareContainer.style.display = 'none';
+        screenShareContainer.innerHTML = '<video id="screenShareVideo" autoplay playsinline></video>';
+    }
     document.getElementById('muteBtn').classList.remove('muted');
     document.getElementById('muteIcon').textContent = '🎤';
-
-    const screenShareContainer = document.getElementById('screenShareContainer');
-    screenShareContainer.innerHTML = '<video id="screenShareVideo" autoplay playsinline></video>';
 }
 
 async function loadMessages() {
@@ -849,4 +920,343 @@ function renderMembers(members) {
         memberItem.appendChild(username);
         membersList.appendChild(memberItem);
     });
+}
+
+function setupFriendsListeners() {
+    document.getElementById('addPmBtn').addEventListener('click', () => {
+        document.getElementById('addFriendModal').style.display = 'flex';
+    });
+
+    document.querySelectorAll('.friends-nav-item').forEach(item => {
+        item.addEventListener('click', () => {
+            document.querySelectorAll('.friends-nav-item').forEach(i => i.classList.remove('active'));
+            document.querySelectorAll('.friends-tab-content').forEach(c => c.classList.remove('active'));
+            item.classList.add('active');
+            
+            const tab = item.dataset.tab;
+            if (tab === 'friends') {
+                document.getElementById('friendsTabContent').classList.add('active');
+            } else if (tab === 'requests') {
+                document.getElementById('requestsTabContent').classList.add('active');
+            }
+        });
+    });
+
+    document.getElementById('addFriendForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const username = document.getElementById('friendUsernameInput').value.trim();
+
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${API_URL}/api/friends/request`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ username })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                document.getElementById('addFriendModal').style.display = 'none';
+                document.getElementById('friendUsernameInput').value = '';
+                loadFriends();
+                alert('Demande d\'ami envoyée !');
+            } else {
+                alert(data.error || 'Erreur lors de l\'envoi de la demande');
+            }
+        } catch (error) {
+            console.error('Erreur envoi demande:', error);
+            alert('Erreur lors de l\'envoi de la demande');
+        }
+    });
+
+    document.getElementById('inviteServerBtn').addEventListener('click', async () => {
+        if (!currentServer) return;
+
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${API_URL}/api/servers/${currentServer.id}/invite`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                document.getElementById('inviteLinkInput').value = data.inviteLink;
+                document.getElementById('inviteServerModal').style.display = 'flex';
+            } else {
+                alert('Erreur lors de la création du lien d\'invitation');
+            }
+        } catch (error) {
+            console.error('Erreur création invitation:', error);
+            alert('Erreur lors de la création du lien d\'invitation');
+        }
+    });
+
+    document.getElementById('copyInviteBtn').addEventListener('click', () => {
+        const input = document.getElementById('inviteLinkInput');
+        input.select();
+        document.execCommand('copy');
+        alert('Lien copié !');
+    });
+
+    document.getElementById('closeAddFriendModal').addEventListener('click', () => {
+        document.getElementById('addFriendModal').style.display = 'none';
+    });
+
+    document.getElementById('closeInviteModal').addEventListener('click', () => {
+        document.getElementById('inviteServerModal').style.display = 'none';
+    });
+
+    if (socket) {
+        socket.on('newFriendRequest', (data) => {
+            if (data.toId === currentUser.id) {
+                loadFriends();
+            }
+        });
+
+        socket.on('friendRequestAccepted', (data) => {
+            loadFriends();
+        });
+    }
+}
+
+async function loadFriends() {
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_URL}/api/friends`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            renderFriends(data.friends);
+            renderFriendRequests(data.receivedRequests, data.sentRequests);
+            
+            const friendsBadge = document.getElementById('friendsBadge');
+            if (friendsBadge && data.friends.length > 0) {
+                friendsBadge.style.display = 'none';
+            }
+        }
+    } catch (error) {
+        console.error('Erreur chargement amis:', error);
+    }
+}
+
+function renderFriends(friends) {
+    const friendsList = document.getElementById('friendsList');
+    if (!friendsList) return;
+    friendsList.innerHTML = '';
+
+    if (friends.length === 0) {
+        friendsList.innerHTML = '<div style="padding: 16px; text-align: center; color: #8e9297;">Aucun ami. Cliquez sur + pour ajouter un ami.</div>';
+        return;
+    }
+
+    friends.forEach(friend => {
+        const friendItem = document.createElement('div');
+        friendItem.className = 'friend-item';
+
+        const avatar = document.createElement('div');
+        avatar.className = 'friend-avatar';
+        const initials = friend.username.substring(0, 2).toUpperCase();
+        avatar.textContent = initials;
+
+        const username = document.createElement('span');
+        username.className = 'friend-username';
+        username.textContent = friend.username;
+
+        const status = document.createElement('div');
+        status.className = 'friend-status';
+
+        friendItem.appendChild(avatar);
+        friendItem.appendChild(username);
+        friendItem.appendChild(status);
+        friendsList.appendChild(friendItem);
+    });
+}
+
+function renderFriendRequests(receivedRequests, sentRequests) {
+    const requestsList = document.getElementById('friendRequestsList');
+    if (!requestsList) return;
+    requestsList.innerHTML = '';
+
+    const requestsBadge = document.getElementById('requestsBadge');
+    if (requestsBadge) {
+        const total = receivedRequests.length;
+        if (total > 0) {
+            requestsBadge.textContent = total;
+            requestsBadge.style.display = 'block';
+        } else {
+            requestsBadge.style.display = 'none';
+        }
+    }
+
+    if (receivedRequests.length === 0 && sentRequests.length === 0) {
+        requestsList.innerHTML = '<div style="padding: 16px; text-align: center; color: #8e9297;">Aucune demande de message</div>';
+        return;
+    }
+
+    if (receivedRequests.length > 0) {
+        const title = document.createElement('div');
+        title.style.padding = '8px';
+        title.style.fontSize = '12px';
+        title.style.fontWeight = '600';
+        title.style.color = '#8e9297';
+        title.style.textTransform = 'uppercase';
+        title.textContent = 'Reçues';
+        requestsList.appendChild(title);
+
+        receivedRequests.forEach(request => {
+            const requestItem = document.createElement('div');
+            requestItem.className = 'friend-request-item';
+
+            const info = document.createElement('div');
+            info.className = 'friend-request-info';
+
+            const avatar = document.createElement('div');
+            avatar.className = 'friend-avatar';
+            const initials = request.username.substring(0, 2).toUpperCase();
+            avatar.textContent = initials;
+
+            const username = document.createElement('span');
+            username.className = 'friend-username';
+            username.textContent = request.username;
+
+            info.appendChild(avatar);
+            info.appendChild(username);
+
+            const actions = document.createElement('div');
+            actions.className = 'friend-request-actions';
+
+            const acceptBtn = document.createElement('button');
+            acceptBtn.className = 'friend-request-btn accept-btn';
+            acceptBtn.textContent = '✓';
+            acceptBtn.title = 'Accepter';
+            acceptBtn.addEventListener('click', () => acceptFriendRequest(request.requestId));
+
+            const declineBtn = document.createElement('button');
+            declineBtn.className = 'friend-request-btn decline-btn';
+            declineBtn.textContent = '✕';
+            declineBtn.title = 'Refuser';
+            declineBtn.addEventListener('click', () => declineFriendRequest(request.requestId));
+
+            actions.appendChild(acceptBtn);
+            actions.appendChild(declineBtn);
+
+            requestItem.appendChild(info);
+            requestItem.appendChild(actions);
+            requestsList.appendChild(requestItem);
+        });
+    }
+
+    if (sentRequests.length > 0) {
+        const title = document.createElement('div');
+        title.style.padding = '8px';
+        title.style.fontSize = '12px';
+        title.style.fontWeight = '600';
+        title.style.color = '#8e9297';
+        title.style.textTransform = 'uppercase';
+        title.textContent = 'Envoyées';
+        requestsList.appendChild(title);
+
+        sentRequests.forEach(request => {
+            const requestItem = document.createElement('div');
+            requestItem.className = 'friend-request-item';
+
+            const info = document.createElement('div');
+            info.className = 'friend-request-info';
+
+            const avatar = document.createElement('div');
+            avatar.className = 'friend-avatar';
+            const initials = request.username.substring(0, 2).toUpperCase();
+            avatar.textContent = initials;
+
+            const username = document.createElement('span');
+            username.className = 'friend-username';
+            username.textContent = request.username + ' (en attente)';
+
+            info.appendChild(avatar);
+            info.appendChild(username);
+
+            requestItem.appendChild(info);
+            requestsList.appendChild(requestItem);
+        });
+    }
+}
+
+async function acceptFriendRequest(requestId) {
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_URL}/api/friends/accept`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ requestId })
+        });
+
+        if (response.ok) {
+            loadFriends();
+        } else {
+            const data = await response.json();
+            alert(data.error || 'Erreur');
+        }
+    } catch (error) {
+        console.error('Erreur acceptation:', error);
+        alert('Erreur');
+    }
+}
+
+async function declineFriendRequest(requestId) {
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_URL}/api/friends/decline`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ requestId })
+        });
+
+        if (response.ok) {
+            loadFriends();
+        } else {
+            const data = await response.json();
+            alert(data.error || 'Erreur');
+        }
+    } catch (error) {
+        console.error('Erreur refus:', error);
+        alert('Erreur');
+    }
+}
+
+async function handleInviteLink(inviteCode) {
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_URL}/api/invite/${inviteCode}/accept`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+            const server = await response.json();
+            if (!servers.find(s => s.id === server.id)) {
+                servers.push(server);
+                renderServers();
+            }
+            selectServer(server);
+            window.history.replaceState({}, document.title, window.location.pathname);
+        } else {
+            const data = await response.json();
+            alert(data.error || 'Lien d\'invitation invalide');
+        }
+    } catch (error) {
+        console.error('Erreur acceptation invitation:', error);
+    }
 }

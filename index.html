@@ -28,6 +28,12 @@
                         <label for="loginPassword">Mot de passe</label>
                         <input type="password" id="loginPassword" required>
                     </div>
+                    <div class="form-group remember-me">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="rememberMe">
+                            <span>Se souvenir de moi</span>
+                        </label>
+                    </div>
                     <button type="submit" class="btn-primary">Se connecter</button>
                     <div id="loginError" class="error-message"></div>
                 </form>
@@ -42,6 +48,12 @@
                     <div class="form-group">
                         <label for="registerPassword">Mot de passe</label>
                         <input type="password" id="registerPassword" required>
+                    </div>
+                    <div class="form-group remember-me">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="rememberMeRegister">
+                            <span>Se souvenir de moi</span>
+                        </label>
                     </div>
                     <button type="submit" class="btn-primary">S'inscrire</button>
                     <div id="registerError" class="error-message"></div>
@@ -64,6 +76,49 @@
             <div class="channels-sidebar">
                 <div class="server-header">
                     <h2 id="serverName">SlayzCord</h2>
+                    <button class="header-btn" id="inviteServerBtn" title="Inviter des amis" style="display: none;">🔗</button>
+                </div>
+                <div id="friendsSection" class="friends-section" style="display: none;">
+                    <div class="friends-search">
+                        <input type="text" id="friendsSearchInput" placeholder="Recherche ou lance une conversation">
+                    </div>
+                    <div class="friends-nav">
+                        <div class="friends-nav-item active" data-tab="friends">
+                            <span class="nav-icon">👋</span>
+                            <span class="nav-text">Amis</span>
+                            <span class="nav-badge" id="friendsBadge" style="display: none;">0</span>
+                        </div>
+                        <div class="friends-nav-item" data-tab="requests">
+                            <span class="nav-icon">✉️</span>
+                            <span class="nav-text">Demandes de message</span>
+                            <span class="nav-badge" id="requestsBadge" style="display: none;">0</span>
+                        </div>
+                        <div class="friends-nav-item" data-tab="nitro">
+                            <span class="nav-icon">⚡</span>
+                            <span class="nav-text">Nitro</span>
+                        </div>
+                        <div class="friends-nav-item" data-tab="shop">
+                            <span class="nav-icon">🏪</span>
+                            <span class="nav-text">Boutique</span>
+                            <span class="nav-badge new-badge">NOUVEAU</span>
+                        </div>
+                        <div class="friends-nav-item" data-tab="quests">
+                            <span class="nav-icon">🏆</span>
+                            <span class="nav-text">Quêtes</span>
+                        </div>
+                    </div>
+                    <div class="friends-content">
+                        <div id="friendsTabContent" class="friends-tab-content active">
+                            <div class="friends-section-header">
+                                <span>Messages privés</span>
+                                <button class="add-pm-btn" id="addPmBtn" title="Nouveau message">+</button>
+                            </div>
+                            <div id="friendsList" class="friends-list"></div>
+                        </div>
+                        <div id="requestsTabContent" class="friends-tab-content">
+                            <div id="friendRequestsList" class="friends-list"></div>
+                        </div>
+                    </div>
                 </div>
                 <div class="channels-list" id="channelsList"></div>
                 
@@ -171,10 +226,56 @@
                 <h2>Rejoindre un serveur</h2>
                 <form id="joinServerForm">
                     <div class="form-group">
-                        <label for="serverIdInput">ID du serveur</label>
-                        <input type="text" id="serverIdInput" required placeholder="Entrez l'ID du serveur">
+                        <label for="serverIdInput">Lien d'invitation</label>
+                        <input type="text" id="serverIdInput" required placeholder="Collez le lien d'invitation">
                     </div>
                     <button type="submit" class="btn-primary">Rejoindre</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="modal" id="inviteServerModal" style="display: none;">
+            <div class="modal-content">
+                <span class="close-modal" id="closeInviteModal">&times;</span>
+                <h2>Inviter des amis</h2>
+                <div id="inviteLinkContainer">
+                    <p>Lien d'invitation :</p>
+                    <div class="invite-link-box">
+                        <input type="text" id="inviteLinkInput" readonly>
+                        <button class="copy-btn" id="copyInviteBtn">Copier</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal" id="addFriendModal" style="display: none;">
+            <div class="modal-content">
+                <span class="close-modal" id="closeAddFriendModal">&times;</span>
+                <h2>Ajouter un ami</h2>
+                <form id="addFriendForm">
+                    <div class="form-group">
+                        <label for="friendUsernameInput">Nom d'utilisateur</label>
+                        <input type="text" id="friendUsernameInput" required placeholder="Entrez le nom d'utilisateur">
+                    </div>
+                    <button type="submit" class="btn-primary">Envoyer la demande</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="modal" id="createGroupModal" style="display: none;">
+            <div class="modal-content">
+                <span class="close-modal" id="closeGroupModal">&times;</span>
+                <h2>Créer un groupe</h2>
+                <form id="createGroupForm">
+                    <div class="form-group">
+                        <label for="groupNameInput">Nom du groupe</label>
+                        <input type="text" id="groupNameInput" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Sélectionnez des amis</label>
+                        <div id="friendsCheckboxes" class="friends-checkboxes"></div>
+                    </div>
+                    <button type="submit" class="btn-primary">Créer le groupe</button>
                 </form>
             </div>
         </div>

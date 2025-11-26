@@ -139,6 +139,26 @@ body {
     display: block;
 }
 
+.remember-me {
+    margin-bottom: 15px;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #b9bbbe;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: #5865f2;
+}
+
 .app-container {
     display: flex;
     height: 100vh;
@@ -689,5 +709,328 @@ body {
 .channel-item.voice-channel::before {
     content: '🔊';
     font-size: 16px;
+}
+
+.header-btn {
+    background: transparent;
+    border: none;
+    color: #b9bbbe;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.header-btn:hover {
+    background: #393c43;
+    color: #ffffff;
+}
+
+.friends-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.friends-search {
+    padding: 8px;
+    border-bottom: 1px solid #202225;
+}
+
+.friends-search input {
+    width: 100%;
+    padding: 8px;
+    background: #202225;
+    border: none;
+    border-radius: 4px;
+    color: #dcddde;
+    font-size: 14px;
+}
+
+.friends-search input::placeholder {
+    color: #72767d;
+}
+
+.friends-nav {
+    padding: 8px;
+    border-bottom: 1px solid #202225;
+}
+
+.friends-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #96989d;
+    transition: all 0.2s;
+    position: relative;
+}
+
+.friends-nav-item:hover {
+    background: #393c43;
+    color: #dcddde;
+}
+
+.friends-nav-item.active {
+    background: #393c43;
+    color: #ffffff;
+}
+
+.nav-icon {
+    font-size: 20px;
+    width: 24px;
+    text-align: center;
+}
+
+.nav-text {
+    flex: 1;
+    font-size: 16px;
+    font-weight: 500;
+}
+
+.nav-badge {
+    background: #ed4245;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 10px;
+    min-width: 20px;
+    text-align: center;
+}
+
+.nav-badge.new-badge {
+    background: #ed4245;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+
+.friends-content {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.friends-tab-content {
+    display: none;
+    flex: 1;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+.friends-tab-content.active {
+    display: flex;
+}
+
+.friends-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #8e9297;
+    letter-spacing: 0.5px;
+}
+
+.add-pm-btn {
+    background: transparent;
+    border: none;
+    color: #8e9297;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.add-pm-btn:hover {
+    background: #393c43;
+    color: #ffffff;
+}
+
+.friends-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 0;
+}
+
+.friend-item {
+    padding: 6px 16px;
+    border-radius: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+}
+
+.friend-item:hover {
+    background: #393c43;
+}
+
+.friend-item.active {
+    background: #393c43;
+}
+
+.friend-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #5865f2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.friend-username {
+    flex: 1;
+    font-size: 14px;
+    color: #dcddde;
+}
+
+.friend-status {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #43b581;
+}
+
+.friend-request-item {
+    padding: 8px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 4px;
+    background: #393c43;
+}
+
+.friend-request-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+}
+
+.friend-request-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.friend-request-btn {
+    padding: 4px 8px;
+    border: none;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.accept-btn {
+    background: #43b581;
+    color: #ffffff;
+}
+
+.accept-btn:hover {
+    background: #3ba55d;
+}
+
+.decline-btn {
+    background: #ed4245;
+    color: #ffffff;
+}
+
+.decline-btn:hover {
+    background: #c03537;
+}
+
+.add-friend-btn {
+    width: 100%;
+    padding: 8px;
+    background: #5865f2;
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.add-friend-btn:hover {
+    background: #4752c4;
+}
+
+.invite-link-box {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.invite-link-box input {
+    flex: 1;
+    padding: 8px;
+    background: #202225;
+    border: none;
+    border-radius: 4px;
+    color: #ffffff;
+    font-size: 14px;
+}
+
+.copy-btn {
+    padding: 8px 16px;
+    background: #5865f2;
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.copy-btn:hover {
+    background: #4752c4;
+}
+
+.friends-checkboxes {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #40444b;
+    border-radius: 4px;
+    padding: 8px;
+}
+
+.friend-checkbox-item {
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.friend-checkbox-item:hover {
+    background: #393c43;
+}
+
+.friend-checkbox-item input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
 }
 

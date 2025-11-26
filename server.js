@@ -218,16 +218,19 @@ app.post('/api/servers', async (req, res) => {
     servers.push(newServer);
     await writeData('servers.json', servers);
 
-    const generalChannel = {
-      id: generateId(),
-      serverId: serverId,
-      name: 'général',
-      type: 'text',
-      createdAt: new Date().toISOString()
-    };
+    const existingGeneral = channels.find(c => c.serverId === serverId && c.name === 'général');
+    if (!existingGeneral) {
+      const generalChannel = {
+        id: generateId(),
+        serverId: serverId,
+        name: 'général',
+        type: 'text',
+        createdAt: new Date().toISOString()
+      };
 
-    channels.push(generalChannel);
-    await writeData('channels.json', channels);
+      channels.push(generalChannel);
+      await writeData('channels.json', channels);
+    }
 
     res.json(newServer);
   } catch (error) {
@@ -504,6 +507,401 @@ app.get('/api/servers/:id/members', async (req, res) => {
     res.json(members);
   } catch (error) {
     console.error('Erreur récupération membres:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+app.post('/api/servers/:id/invite', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'Token manquant' });
+    }
+
+    const user = await findUserByToken(token);
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Token invalide' });
+    }
+
+    const { id } = req.params;
+    const servers = await readData('servers.json');
+    const server = servers.find(s => s.id === id);
+    
+    if (!server) {
+      return res.status(404).json({ error: 'Serveur introuvable' });
+    }
+
+    if (!server.members.includes(user.id) && server.ownerId !== user.id) {
+      return res.status(403).json({ error: 'Accès refusé' });
+    }
+
+    const inviteCode = generateId();
+    
+    if (!server.invites) {
+      server.invites = [];
+    }
+    
+    server.invites.push({
+      code: inviteCode,
+      createdBy: user.id,
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+    });
+
+    await writeData('servers.json', servers);
+
+    res.json({ 
+      inviteCode,
+      inviteLink: `${req.protocol}://${req.get('host')}/invite/${inviteCode}`
+    });
+  } catch (error) {
+    console.error('Erreur création invitation:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+app.get('/api/invite/:code', async (req, res) => {
+  try {
+    const { code } = req.params;
+    const servers = await readData('servers.json');
+    
+    for (const server of servers) {
+      if (server.invites) {
+        const invite = server.invites.find(inv => inv.code === code);
+        if (invite) {
+          if (new Date(invite.expiresAt) > new Date()) {
+            return res.json({
+              serverId: server.id,
+              serverName: server.name,
+              valid: true
+            });
+          } else {
+            return res.status(400).json({ error: 'Lien d\'invitation expiré' });
+          }
+        }
+      }
+    }
+    
+    return res.status(404).json({ error: 'Lien d\'invitation invalide' });
+  } catch (error) {
+    console.error('Erreur vérification invitation:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+app.post('/api/invite/:code/accept', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'Token manquant' });
+    }
+
+    const user = await findUserByToken(token);
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Token invalide' });
+    }
+
+    const { code } = req.params;
+    const servers = await readData('servers.json');
+    
+    for (const server of servers) {
+      if (server.invites) {
+        const invite = server.invites.find(inv => inv.code === code);
+        if (invite) {
+          if (new Date(invite.expiresAt) > new Date()) {
+            if (!server.members.includes(user.id)) {
+              server.members.push(user.id);
+              await writeData('servers.json', servers);
+              return res.json(server);
+            } else {
+              return res.json(server);
+            }
+          } else {
+            return res.status(400).json({ error: 'Lien d\'invitation expiré' });
+          }
+        }
+      }
+    }
+    
+    return res.status(404).json({ error: 'Lien d\'invitation invalide' });
+  } catch (error) {
+    console.error('Erreur acceptation invitation:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+app.get('/api/friends', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'Token manquant' });
+    }
+
+    const user = await findUserByToken(token);
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Token invalide' });
+    }
+
+    const friendRequests = await readData('friendRequests.json');
+    const users = await readData('users.json');
+    
+    const sentRequests = friendRequests.filter(fr => fr.fromId === user.id && fr.status === 'pending');
+    const receivedRequests = friendRequests.filter(fr => fr.toId === user.id && fr.status === 'pending');
+    const friends = friendRequests.filter(fr => 
+      (fr.fromId === user.id || fr.toId === user.id) && fr.status === 'accepted'
+    ).map(fr => {
+      const friendId = fr.fromId === user.id ? fr.toId : fr.fromId;
+      const friend = users.find(u => u.id === friendId);
+      return friend ? { id: friend.id, username: friend.username } : null;
+    }).filter(Boolean);
+
+    res.json({
+      friends,
+      sentRequests: sentRequests.map(fr => {
+        const friend = users.find(u => u.id === fr.toId);
+        return friend ? { id: friend.id, username: friend.username, requestId: fr.id } : null;
+      }).filter(Boolean),
+      receivedRequests: receivedRequests.map(fr => {
+        const friend = users.find(u => u.id === fr.fromId);
+        return friend ? { id: friend.id, username: friend.username, requestId: fr.id } : null;
+      }).filter(Boolean)
+    });
+  } catch (error) {
+    console.error('Erreur récupération amis:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+app.post('/api/friends/request', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'Token manquant' });
+    }
+
+    const user = await findUserByToken(token);
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Token invalide' });
+    }
+
+    const { username } = req.body;
+    
+    if (!username) {
+      return res.status(400).json({ error: 'Nom d\'utilisateur requis' });
+    }
+
+    const users = await readData('users.json');
+    const targetUser = users.find(u => u.username === username);
+    
+    if (!targetUser) {
+      return res.status(404).json({ error: 'Utilisateur introuvable' });
+    }
+
+    if (targetUser.id === user.id) {
+      return res.status(400).json({ error: 'Vous ne pouvez pas vous ajouter vous-même' });
+    }
+
+    const friendRequests = await readData('friendRequests.json');
+    
+    const existingRequest = friendRequests.find(fr => 
+      (fr.fromId === user.id && fr.toId === targetUser.id) ||
+      (fr.fromId === targetUser.id && fr.toId === user.id)
+    );
+
+    if (existingRequest) {
+      if (existingRequest.status === 'accepted') {
+        return res.status(400).json({ error: 'Vous êtes déjà amis' });
+      }
+      if (existingRequest.status === 'pending') {
+        return res.status(400).json({ error: 'Demande d\'ami déjà envoyée' });
+      }
+    }
+
+    const newRequest = {
+      id: generateId(),
+      fromId: user.id,
+      toId: targetUser.id,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+
+    friendRequests.push(newRequest);
+    await writeData('friendRequests.json', friendRequests);
+
+    io.emit('newFriendRequest', {
+      toId: targetUser.id,
+      fromId: user.id,
+      fromUsername: user.username,
+      requestId: newRequest.id
+    });
+
+    res.json({ success: true, message: 'Demande d\'ami envoyée' });
+  } catch (error) {
+    console.error('Erreur envoi demande d\'ami:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+app.post('/api/friends/accept', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'Token manquant' });
+    }
+
+    const user = await findUserByToken(token);
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Token invalide' });
+    }
+
+    const { requestId } = req.body;
+    
+    if (!requestId) {
+      return res.status(400).json({ error: 'ID de demande requis' });
+    }
+
+    const friendRequests = await readData('friendRequests.json');
+    const request = friendRequests.find(fr => fr.id === requestId && fr.toId === user.id && fr.status === 'pending');
+    
+    if (!request) {
+      return res.status(404).json({ error: 'Demande introuvable' });
+    }
+
+    request.status = 'accepted';
+    await writeData('friendRequests.json', friendRequests);
+
+    io.emit('friendRequestAccepted', {
+      fromId: request.fromId,
+      toId: user.id,
+      toUsername: user.username
+    });
+
+    res.json({ success: true, message: 'Demande d\'ami acceptée' });
+  } catch (error) {
+    console.error('Erreur acceptation demande:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+app.post('/api/friends/decline', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'Token manquant' });
+    }
+
+    const user = await findUserByToken(token);
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Token invalide' });
+    }
+
+    const { requestId } = req.body;
+    
+    if (!requestId) {
+      return res.status(400).json({ error: 'ID de demande requis' });
+    }
+
+    const friendRequests = await readData('friendRequests.json');
+    const requestIndex = friendRequests.findIndex(fr => fr.id === requestId && fr.toId === user.id);
+    
+    if (requestIndex === -1) {
+      return res.status(404).json({ error: 'Demande introuvable' });
+    }
+
+    friendRequests.splice(requestIndex, 1);
+    await writeData('friendRequests.json', friendRequests);
+
+    res.json({ success: true, message: 'Demande d\'ami refusée' });
+  } catch (error) {
+    console.error('Erreur refus demande:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+app.post('/api/groups', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'Token manquant' });
+    }
+
+    const user = await findUserByToken(token);
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Token invalide' });
+    }
+
+    const { name, memberIds } = req.body;
+    
+    if (!name || !memberIds || !Array.isArray(memberIds) || memberIds.length === 0) {
+      return res.status(400).json({ error: 'Nom et membres requis' });
+    }
+
+    const groups = await readData('groups.json');
+    
+    const newGroup = {
+      id: generateId(),
+      name: name.trim(),
+      ownerId: user.id,
+      members: [user.id, ...memberIds],
+      createdAt: new Date().toISOString()
+    };
+
+    groups.push(newGroup);
+    await writeData('groups.json', groups);
+
+    const channels = await readData('channels.json');
+    const groupChannel = {
+      id: generateId(),
+      groupId: newGroup.id,
+      name: 'général',
+      type: 'text',
+      createdAt: new Date().toISOString()
+    };
+
+    channels.push(groupChannel);
+    await writeData('channels.json', channels);
+
+    res.json(newGroup);
+  } catch (error) {
+    console.error('Erreur création groupe:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+app.get('/api/groups', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ error: 'Token manquant' });
+    }
+
+    const user = await findUserByToken(token);
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Token invalide' });
+    }
+
+    const groups = await readData('groups.json');
+    const userGroups = groups.filter(g => g.members.includes(user.id));
+
+    res.json(userGroups);
+  } catch (error) {
+    console.error('Erreur récupération groupes:', error);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
