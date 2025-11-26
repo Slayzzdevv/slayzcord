@@ -542,7 +542,10 @@ async function selectServer(server) {
     document.querySelector(`[data-server-id="${server.id}"]`)?.classList.add('active');
 
     document.getElementById('serverName').textContent = server.name;
-    document.getElementById('friendsSection').style.display = 'none';
+    const friendsSection = document.getElementById('friendsSection');
+    if (friendsSection) {
+        friendsSection.style.display = 'none';
+    }
     document.getElementById('inviteServerBtn').style.display = 'block';
     await loadChannels();
     await loadMembers();
@@ -923,123 +926,176 @@ function renderMembers(members) {
 }
 
 function setupFriendsListeners() {
-    document.getElementById('addPmBtn').addEventListener('click', () => {
-        document.getElementById('addFriendModal').style.display = 'flex';
-    });
+    const addPmBtn = document.getElementById('addPmBtn');
+    if (addPmBtn) {
+        addPmBtn.onclick = () => {
+            document.getElementById('addFriendModal').style.display = 'flex';
+        };
+    }
 
     document.querySelectorAll('.friends-nav-item').forEach(item => {
-        item.addEventListener('click', () => {
+        item.onclick = () => {
             document.querySelectorAll('.friends-nav-item').forEach(i => i.classList.remove('active'));
-            document.querySelectorAll('.friends-tab-content').forEach(c => c.classList.remove('active'));
             item.classList.add('active');
             
             const tab = item.dataset.tab;
+            const friendsTab = document.getElementById('friendsTabContent');
+            const requestsTab = document.getElementById('requestsTabContent');
+            
             if (tab === 'friends') {
-                document.getElementById('friendsTabContent').classList.add('active');
+                if (friendsTab) {
+                    friendsTab.classList.add('active');
+                    friendsTab.style.display = 'flex';
+                }
+                if (requestsTab) {
+                    requestsTab.classList.remove('active');
+                    requestsTab.style.display = 'none';
+                }
             } else if (tab === 'requests') {
-                document.getElementById('requestsTabContent').classList.add('active');
-            }
-        });
-    });
-
-    document.getElementById('addFriendForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const username = document.getElementById('friendUsernameInput').value.trim();
-
-        try {
-            const token = localStorage.getItem('token');
-            const response = await fetch(`${API_URL}/api/friends/request`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ username })
-            });
-
-            const data = await response.json();
-
-            if (response.ok) {
-                document.getElementById('addFriendModal').style.display = 'none';
-                document.getElementById('friendUsernameInput').value = '';
+                if (requestsTab) {
+                    requestsTab.classList.add('active');
+                    requestsTab.style.display = 'flex';
+                }
+                if (friendsTab) {
+                    friendsTab.classList.remove('active');
+                    friendsTab.style.display = 'none';
+                }
                 loadFriends();
-                alert('Demande d\'ami envoyée !');
             } else {
-                alert(data.error || 'Erreur lors de l\'envoi de la demande');
+                if (friendsTab) friendsTab.style.display = 'none';
+                if (requestsTab) requestsTab.style.display = 'none';
             }
-        } catch (error) {
-            console.error('Erreur envoi demande:', error);
-            alert('Erreur lors de l\'envoi de la demande');
-        }
+        };
     });
 
-    document.getElementById('inviteServerBtn').addEventListener('click', async () => {
-        if (!currentServer) return;
+    const addFriendForm = document.getElementById('addFriendForm');
+    if (addFriendForm) {
+        addFriendForm.onsubmit = async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('friendUsernameInput').value.trim();
 
-        try {
-            const token = localStorage.getItem('token');
-            const response = await fetch(`${API_URL}/api/servers/${currentServer.id}/invite`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            if (!username) {
+                alert('Veuillez entrer un nom d\'utilisateur');
+                return;
+            }
 
-            if (response.ok) {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_URL}/api/friends/request`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ username })
+                });
+
                 const data = await response.json();
-                document.getElementById('inviteLinkInput').value = data.inviteLink;
-                document.getElementById('inviteServerModal').style.display = 'flex';
-            } else {
+
+                if (response.ok) {
+                    document.getElementById('addFriendModal').style.display = 'none';
+                    document.getElementById('friendUsernameInput').value = '';
+                    loadFriends();
+                    alert('Demande d\'ami envoyée !');
+                } else {
+                    alert(data.error || 'Erreur lors de l\'envoi de la demande');
+                }
+            } catch (error) {
+                console.error('Erreur envoi demande:', error);
+                alert('Erreur lors de l\'envoi de la demande');
+            }
+        };
+    }
+
+    const inviteServerBtn = document.getElementById('inviteServerBtn');
+    if (inviteServerBtn) {
+        inviteServerBtn.onclick = async () => {
+            if (!currentServer) return;
+
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_URL}/api/servers/${currentServer.id}/invite`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('inviteLinkInput').value = data.inviteLink;
+                    document.getElementById('inviteServerModal').style.display = 'flex';
+                } else {
+                    alert('Erreur lors de la création du lien d\'invitation');
+                }
+            } catch (error) {
+                console.error('Erreur création invitation:', error);
                 alert('Erreur lors de la création du lien d\'invitation');
             }
-        } catch (error) {
-            console.error('Erreur création invitation:', error);
-            alert('Erreur lors de la création du lien d\'invitation');
-        }
-    });
+        };
+    }
 
-    document.getElementById('copyInviteBtn').addEventListener('click', () => {
-        const input = document.getElementById('inviteLinkInput');
-        input.select();
-        document.execCommand('copy');
-        alert('Lien copié !');
-    });
+    const copyInviteBtn = document.getElementById('copyInviteBtn');
+    if (copyInviteBtn) {
+        copyInviteBtn.onclick = () => {
+            const input = document.getElementById('inviteLinkInput');
+            input.select();
+            document.execCommand('copy');
+            alert('Lien copié !');
+        };
+    }
 
-    document.getElementById('closeAddFriendModal').addEventListener('click', () => {
-        document.getElementById('addFriendModal').style.display = 'none';
-    });
+    const closeAddFriendModal = document.getElementById('closeAddFriendModal');
+    if (closeAddFriendModal) {
+        closeAddFriendModal.onclick = () => {
+            document.getElementById('addFriendModal').style.display = 'none';
+        };
+    }
 
-    document.getElementById('closeInviteModal').addEventListener('click', () => {
-        document.getElementById('inviteServerModal').style.display = 'none';
-    });
+    const closeInviteModal = document.getElementById('closeInviteModal');
+    if (closeInviteModal) {
+        closeInviteModal.onclick = () => {
+            document.getElementById('inviteServerModal').style.display = 'none';
+        };
+    }
 
-    if (socket) {
+    if (socket && currentUser) {
         socket.on('newFriendRequest', (data) => {
-            if (data.toId === currentUser.id) {
+            if (currentUser && data.toId === currentUser.id) {
                 loadFriends();
             }
         });
 
         socket.on('friendRequestAccepted', (data) => {
-            loadFriends();
+            if (currentUser) {
+                loadFriends();
+            }
         });
     }
 }
 
 async function loadFriends() {
+    if (!currentUser) return;
+    
     try {
         const token = localStorage.getItem('token');
+        if (!token) return;
+        
         const response = await fetch(`${API_URL}/api/friends`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
 
         if (response.ok) {
             const data = await response.json();
-            renderFriends(data.friends);
-            renderFriendRequests(data.receivedRequests, data.sentRequests);
+            renderFriends(data.friends || []);
+            renderFriendRequests(data.receivedRequests || [], data.sentRequests || []);
             
             const friendsBadge = document.getElementById('friendsBadge');
-            if (friendsBadge && data.friends.length > 0) {
-                friendsBadge.style.display = 'none';
+            if (friendsBadge) {
+                if (data.friends && data.friends.length > 0) {
+                    friendsBadge.style.display = 'none';
+                }
             }
+        } else if (response.status === 401) {
+            showLogin();
         }
     } catch (error) {
         console.error('Erreur chargement amis:', error);
